@@ -26,6 +26,7 @@ export interface Stats {
   prs: { count: number; merged: number; open: number };
   reviews: { count: number };
   issues: { count: number; open: number };
+  mergeRate?: number;
 }
 
 export interface Repo {

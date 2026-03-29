@@ -45,8 +45,8 @@ export function Dashboard() {
       <div className="empty-state">
         <div className="empty-icon">🚀</div>
         <h2>No data yet</h2>
-        <p>Click <strong>Sync Now</strong> in the top-right to fetch all your GitHub contributions.</p>
-        <p className="empty-sub">This may take a few minutes depending on how many repos you have.</p>
+        <p>No contribution data found. Make sure your <strong>GITHUB_TOKEN</strong> is set and has the required scopes.</p>
+        <p className="empty-sub">Data is fetched live from GitHub — no sync required.</p>
       </div>
     );
   }
@@ -97,12 +97,12 @@ export function Dashboard() {
 
       {/* Stat cards */}
       <div className="stat-grid">
-        <StatCard label="Total Commits" value={stats!.commits.count.toLocaleString()} icon="💻" color="indigo" sub={`Since ${stats!.commits.earliest?.split('T')[0] ?? 'N/A'}`} />
+        <StatCard label="Total Commits" value={stats!.commits.count.toLocaleString()} icon="💻" color="indigo" sub="past year" />
         <StatCard label="Pull Requests" value={stats!.prs.count.toLocaleString()} icon="🔀" color="violet" sub={`${stats!.prs.merged} merged · ${stats!.prs.open} open`} />
         <StatCard label="PR Reviews" value={stats!.reviews.count.toLocaleString()} icon="👀" color="emerald" sub="Reviews given" />
         <StatCard label="Issues" value={stats!.issues.count.toLocaleString()} icon="🐛" color="amber" sub={`${stats!.issues.open} open`} />
-        <StatCard label="Repositories" value={stats!.repos.total.toLocaleString()} icon="📦" color="sky" sub={`${stats!.repos.orgs} org repos`} />
-        <StatCard label="Merge Rate" value={prStats?.mergeRate ? `${prStats.mergeRate.merge_rate}%` : 'N/A'} icon="✅" color="green" sub="PRs merged" />
+        <StatCard label="Repositories" value={stats!.repos.total.toLocaleString()} icon="📦" color="sky" sub="your repos" />
+        <StatCard label="Merge Rate" value={stats!.mergeRate != null ? `${stats!.mergeRate}%` : prStats?.mergeRate ? `${prStats.mergeRate.merge_rate}%` : 'N/A'} icon="✅" color="green" sub="PRs merged" />
       </div>
 
       {/* Charts */}

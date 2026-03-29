@@ -1,24 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { runFullSync, getSyncProgress } from '../github/sync.js';
-import { getSyncState } from '../db/index.js';
 
 export const syncRouter = Router();
 
-// POST /api/sync/start — kick off a full sync
+// POST /api/sync/start — stub: live mode, no sync needed
 syncRouter.post('/start', (_req: Request, res: Response) => {
-  const progress = getSyncProgress();
-  if (progress.running) {
-    res.status(409).json({ error: 'Sync already running', progress });
-    return;
-  }
-  // Run in background, don't await
-  runFullSync().catch(console.error);
-  res.json({ started: true });
+  res.json({ synced: false, message: 'Live mode - no sync needed' });
 });
 
-// GET /api/sync/progress — get current sync status
+// GET /api/sync/progress — stub: live mode, no sync state
 syncRouter.get('/progress', (_req: Request, res: Response) => {
-  const progress = getSyncProgress();
-  const lastSync = getSyncState('last_sync');
-  res.json({ ...progress, lastSync });
+  res.json({ synced: false, message: 'Live mode - no sync needed', running: false });
 });
