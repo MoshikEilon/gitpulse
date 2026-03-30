@@ -8,15 +8,27 @@ import {
   getPRs,
   getPRStats,
   getOrgs,
+  getOrgList,
   getLanguages,
+  getCommitsByRepo,
+  getReviewsByRepo,
+  getRepoList,
+  getContributorList,
 } from '../github/queries.js';
 
 export const contributionsRouter = Router();
 
 // GET /api/contributions/stats
-contributionsRouter.get('/stats', async (_req: Request, res: Response) => {
+contributionsRouter.get('/stats', async (req: Request, res: Response) => {
   try {
-    const stats = await getStats();
+    const { from, to, repo, author, org } = req.query;
+    const stats = await getStats(
+      from as string | undefined,
+      to as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+      org as string | undefined,
+    );
     res.json({
       repos: { total: stats.repos, orgs: 0 },
       commits: { count: stats.commits, earliest: '', latest: '' },
@@ -24,6 +36,8 @@ contributionsRouter.get('/stats', async (_req: Request, res: Response) => {
       reviews: { count: stats.reviews },
       issues: { count: stats.issues, open: 0 },
       mergeRate: stats.mergeRate,
+      linesAdded: stats.linesAdded,
+      linesDeleted: stats.linesDeleted,
     });
   } catch (err) {
     console.error('[contributions/stats]', err);
@@ -66,9 +80,10 @@ contributionsRouter.get('/commits', async (req: Request, res: Response) => {
 });
 
 // GET /api/contributions/commits/heatmap
-contributionsRouter.get('/commits/heatmap', async (_req: Request, res: Response) => {
+contributionsRouter.get('/commits/heatmap', async (req: Request, res: Response) => {
   try {
-    const heatmap = await getCommitHeatmap();
+    const { from, to } = req.query;
+    const heatmap = await getCommitHeatmap(from as string | undefined, to as string | undefined);
     res.json(heatmap);
   } catch (err) {
     console.error('[contributions/commits/heatmap]', err);
@@ -77,9 +92,16 @@ contributionsRouter.get('/commits/heatmap', async (_req: Request, res: Response)
 });
 
 // GET /api/contributions/commits/monthly
-contributionsRouter.get('/commits/monthly', async (_req: Request, res: Response) => {
+contributionsRouter.get('/commits/monthly', async (req: Request, res: Response) => {
   try {
-    const monthly = await getMonthlyCommits();
+    const { from, to, repo, author, org } = req.query;
+    const monthly = await getMonthlyCommits(
+      from as string | undefined,
+      to as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+      org as string | undefined,
+    );
     res.json(monthly);
   } catch (err) {
     console.error('[contributions/commits/monthly]', err);
@@ -107,9 +129,16 @@ contributionsRouter.get('/prs', async (req: Request, res: Response) => {
 });
 
 // GET /api/contributions/prs/stats
-contributionsRouter.get('/prs/stats', async (_req: Request, res: Response) => {
+contributionsRouter.get('/prs/stats', async (req: Request, res: Response) => {
   try {
-    const { byMonth, byRepo, mergeRate } = await getPRStats();
+    const { from, to, repo, author, org } = req.query;
+    const { byMonth, byRepo, mergeRate } = await getPRStats(
+      from as string | undefined,
+      to as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+      org as string | undefined,
+    );
 
     // Shape to match what the client expects
     const monthly = byMonth.map(m => ({
@@ -143,6 +172,41 @@ contributionsRouter.get('/prs/stats', async (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/contributions/commits/by-repo
+contributionsRouter.get('/commits/by-repo', async (req: Request, res: Response) => {
+  try {
+    const { from, to, repo, author, org } = req.query;
+    const data = await getCommitsByRepo(
+      from as string | undefined,
+      to as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+      org as string | undefined,
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('[contributions/commits/by-repo]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /api/contributions/reviews/by-repo
+contributionsRouter.get('/reviews/by-repo', async (req: Request, res: Response) => {
+  try {
+    const { from, to, repo, author } = req.query;
+    const data = await getReviewsByRepo(
+      from as string | undefined,
+      to as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+    );
+    res.json(data);
+  } catch (err) {
+    console.error('[contributions/reviews/by-repo]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // GET /api/contributions/orgs
 contributionsRouter.get('/orgs', async (_req: Request, res: Response) => {
   try {
@@ -156,13 +220,56 @@ contributionsRouter.get('/orgs', async (_req: Request, res: Response) => {
 });
 
 // GET /api/contributions/languages
-contributionsRouter.get('/languages', async (_req: Request, res: Response) => {
+contributionsRouter.get('/languages', async (req: Request, res: Response) => {
   try {
-    const languages = await getLanguages();
+    const { from, to } = req.query;
+    const languages = await getLanguages(from as string | undefined, to as string | undefined);
     // Shape to match old API: { language, repos }
     res.json(languages.map(l => ({ language: l.language, repos: l.count })));
   } catch (err) {
     console.error('[contributions/languages]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /api/contributions/repo-list
+contributionsRouter.get('/repo-list', async (req: Request, res: Response) => {
+  try {
+    const { from, to, org } = req.query;
+    const repos = await getRepoList(
+      from as string | undefined,
+      to as string | undefined,
+      org as string | undefined,
+    );
+    res.json(repos);
+  } catch (err) {
+    console.error('[contributions/repo-list]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /api/contributions/contributor-list
+contributionsRouter.get('/contributor-list', async (req: Request, res: Response) => {
+  try {
+    const { org, repo } = req.query;
+    const contributors = await getContributorList(
+      org as string | undefined,
+      repo as string | undefined,
+    );
+    res.json(contributors);
+  } catch (err) {
+    console.error('[contributions/contributor-list]', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// GET /api/contributions/org-list
+contributionsRouter.get('/org-list', async (_req: Request, res: Response) => {
+  try {
+    const orgs = await getOrgList();
+    res.json(orgs);
+  } catch (err) {
+    console.error('[contributions/org-list]', err);
     res.status(500).json({ error: String(err) });
   }
 });

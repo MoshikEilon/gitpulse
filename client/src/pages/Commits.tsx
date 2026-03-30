@@ -72,9 +72,11 @@ export function CommitsPage() {
   const [repoFilter, setRepoFilter] = useState('');
 
   useEffect(() => {
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     Promise.all([
       api.commits({ limit: 200 }),
-      api.commitsHeatmap(12),
+      api.commitsHeatmap({ from, to }),
     ]).then(([c, h]) => {
       setCommits(c);
       setHeatmap(h);
@@ -118,20 +120,29 @@ export function CommitsPage() {
         <div className="loading">Loading commits…</div>
       ) : (
         <div className="commit-list">
-          {filtered.map(c => (
-            <div key={c.sha} className="commit-item">
-              <span className="commit-sha">
-                <a href={c.url} target="_blank" rel="noopener">{c.sha.slice(0, 7)}</a>
-              </span>
-              <div className="commit-body">
-                <span className="commit-msg">{c.message.split('\n')[0]}</span>
-                <div className="commit-meta">
-                  <span className="commit-repo">{c.repo_full_name}</span>
-                  <span className="commit-date">{c.committed_at?.split('T')[0]}</span>
+          {filtered.map(c => {
+            const commitCount = parseInt(c.message.match(/^(\d+)/)?.[1] ?? '1', 10);
+            return (
+              <div key={c.sha} className="commit-item">
+                <span className="commit-sha">
+                  <a href={c.url} target="_blank" rel="noopener" title={`View ${c.repo_full_name}`}>
+                    {commitCount > 1 ? `+${commitCount}` : '●'}
+                  </a>
+                </span>
+                <div className="commit-body">
+                  <span className="commit-msg">
+                    <a href={c.url} target="_blank" rel="noopener" style={{ color: 'inherit' }}>
+                      {c.repo_full_name}
+                    </a>
+                  </span>
+                  <div className="commit-meta">
+                    <span className="commit-repo">{commitCount} commit{commitCount !== 1 ? 's' : ''}</span>
+                    <span className="commit-date">{c.committed_at?.split('T')[0]}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {filtered.length === 0 && <div className="empty-state"><p>No commits found</p></div>}
         </div>
       )}

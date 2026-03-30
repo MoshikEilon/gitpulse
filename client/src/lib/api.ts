@@ -27,6 +27,8 @@ export interface Stats {
   reviews: { count: number };
   issues: { count: number; open: number };
   mergeRate?: number;
+  linesAdded?: number;
+  linesDeleted?: number;
 }
 
 export interface Repo {
@@ -83,6 +85,12 @@ export interface MonthlyCommits {
   repos: number;
 }
 
+export interface RepoBreakdownItem {
+  repo: string;
+  commits?: number;
+  reviews?: number;
+}
+
 export interface SyncProgress {
   running: boolean;
   phase: string;
@@ -99,16 +107,79 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface DateRange {
+  from?: string;
+  to?: string;
+}
+
+export interface Filters {
+  range?: DateRange;
+  repo?: string;
+  author?: string;
+  org?: string;
+}
+
+function buildFilterParams(filters?: Filters): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (filters?.range?.from) params.from = filters.range.from;
+  if (filters?.range?.to) params.to = filters.range.to;
+  if (filters?.repo) params.repo = filters.repo;
+  if (filters?.author) params.author = filters.author;
+  if (filters?.org) params.org = filters.org;
+  return params;
+}
+
 export const api = {
-  stats: () => get<Stats>('/contributions/stats'),
+  stats: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
+    return get<Stats>('/contributions/stats', Object.keys(params).length > 0 ? params : undefined);
+  },
   repos: (params?: Record<string, string | number>) => get<Repo[]>('/contributions/repos', params),
   commits: (params?: Record<string, string | number>) => get<Commit[]>('/contributions/commits', params),
-  commitsHeatmap: (months = 12) => get<HeatmapDay[]>('/contributions/commits/heatmap', { months }),
-  commitsMonthly: () => get<MonthlyCommits[]>('/contributions/commits/monthly'),
+  commitsHeatmap: (range?: DateRange) => {
+    const params: Record<string, string> = {};
+    if (range?.from) params.from = range.from;
+    if (range?.to) params.to = range.to;
+    return get<HeatmapDay[]>('/contributions/commits/heatmap', Object.keys(params).length > 0 ? params : undefined);
+  },
+  commitsMonthly: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
+    return get<MonthlyCommits[]>('/contributions/commits/monthly', Object.keys(params).length > 0 ? params : undefined);
+  },
   prs: (params?: Record<string, string | number>) => get<PR[]>('/contributions/prs', params),
-  prStats: () => get<PRStats>('/contributions/prs/stats'),
+  prStats: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
+    return get<PRStats>('/contributions/prs/stats', Object.keys(params).length > 0 ? params : undefined);
+  },
+  commitsByRepo: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
+    return get<Array<{ repo: string; commits: number }>>('/contributions/commits/by-repo', Object.keys(params).length > 0 ? params : undefined);
+  },
+  reviewsByRepo: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
+    return get<Array<{ repo: string; reviews: number }>>('/contributions/reviews/by-repo', Object.keys(params).length > 0 ? params : undefined);
+  },
   orgs: () => get<Array<{ org_name: string; repo_count: number }>>('/contributions/orgs'),
-  languages: () => get<Array<{ language: string; repos: number }>>('/contributions/languages'),
+  languages: (range?: DateRange) => {
+    const params: Record<string, string> = {};
+    if (range?.from) params.from = range.from;
+    if (range?.to) params.to = range.to;
+    return get<Array<{ language: string; repos: number }>>('/contributions/languages', Object.keys(params).length > 0 ? params : undefined);
+  },
+  repoList: (range?: DateRange, filters?: { org?: string }) => {
+    const params: Record<string, string> = {};
+    if (range?.from) params.from = range.from;
+    if (range?.to) params.to = range.to;
+    if (filters?.org) params.org = filters.org;
+    return get<string[]>('/contributions/repo-list', Object.keys(params).length > 0 ? params : undefined);
+  },
+  orgList: () => get<string[]>('/contributions/org-list'),
+  contributorList: (filters?: { org?: string; repo?: string }) => {
+    const params: Record<string, string> = {};
+    if (filters?.org) params.org = filters.org;
+    if (filters?.repo) params.repo = filters.repo;
+    return get<string[]>('/contributions/contributor-list', Object.keys(params).length > 0 ? params : undefined);
+  },
 
   syncStart: () => post<{ started: boolean }>('/sync/start', {}),
   syncProgress: () => get<SyncProgress>('/sync/progress'),
