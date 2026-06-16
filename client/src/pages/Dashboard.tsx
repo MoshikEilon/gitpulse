@@ -95,7 +95,7 @@ export function Dashboard() {
       statsPromise,
       api.commitsMonthly(filters).catch(err => { console.error('[fetchAll] commitsMonthly error:', err); return []; }),
       api.prStats(filters).catch(err => { console.error('[fetchAll] prStats error:', err); return null; }),
-      api.languages(r).catch(err => { console.error('[fetchAll] languages error:', err); return []; }),
+      api.languages(filters).catch(err => { console.error('[fetchAll] languages error:', err); return []; }),
     ]).then(([, m, p, l]) => {
       setMonthly(m as typeof monthly);
       if (p) setPrStats(p as typeof prStats);

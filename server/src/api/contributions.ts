@@ -222,8 +222,14 @@ contributionsRouter.get('/orgs', async (_req: Request, res: Response) => {
 // GET /api/contributions/languages
 contributionsRouter.get('/languages', async (req: Request, res: Response) => {
   try {
-    const { from, to } = req.query;
-    const languages = await getLanguages(from as string | undefined, to as string | undefined);
+    const { from, to, org, repo, author } = req.query;
+    const languages = await getLanguages(
+      from as string | undefined,
+      to as string | undefined,
+      org as string | undefined,
+      repo as string | undefined,
+      author as string | undefined,
+    );
     // Shape to match old API: { language, repos }
     res.json(languages.map(l => ({ language: l.language, repos: l.count })));
   } catch (err) {

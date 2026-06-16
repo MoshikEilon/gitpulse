@@ -160,10 +160,8 @@ export const api = {
     return get<Array<{ repo: string; reviews: number }>>('/contributions/reviews/by-repo', Object.keys(params).length > 0 ? params : undefined);
   },
   orgs: () => get<Array<{ org_name: string; repo_count: number }>>('/contributions/orgs'),
-  languages: (range?: DateRange) => {
-    const params: Record<string, string> = {};
-    if (range?.from) params.from = range.from;
-    if (range?.to) params.to = range.to;
+  languages: (filters?: Filters) => {
+    const params = buildFilterParams(filters);
     return get<Array<{ language: string; repos: number }>>('/contributions/languages', Object.keys(params).length > 0 ? params : undefined);
   },
   repoList: (range?: DateRange, filters?: { org?: string }) => {

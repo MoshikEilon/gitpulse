@@ -762,6 +762,9 @@ export async function getPRs(options: {
   perPage?: number;
 }): Promise<{ prs: PRItem[]; total: number }> {
   const { state, repo, from, to, page = 1, perPage = 50 } = options;
+  const cacheKey = `prs:${state ?? 'all'}:${repo ?? ''}:${from ?? ''}:${to ?? ''}:${page}:${perPage}`;
+
+  return withCache(cacheKey, 5 * 60 * 1000, async () => {
 
   let query = `author:${USERNAME} is:pr`;
   if (state === 'open') query += ' is:open';
@@ -831,6 +834,7 @@ export async function getPRs(options: {
   const paginated = allPRs.slice(start, start + perPage);
 
   return { prs: paginated, total };
+  }); // end withCache
 }
 
 // ---------------------------------------------------------------------------
@@ -1206,23 +1210,61 @@ export async function getOrgList(): Promise<string[]> {
 // getLanguages
 // ---------------------------------------------------------------------------
 
-export async function getLanguages(from?: string, to?: string): Promise<Array<{ language: string; count: number }>> {
+export async function getLanguages(from?: string, to?: string, org?: string, repo?: string, author?: string): Promise<Array<{ language: string; count: number }>> {
   const fromN = from ?? '';
   const toN = to ?? '';
-  const cacheKey = `languages:${fromN}:${toN}`;
+  const orgN = org ?? '';
+  const repoN = repo ?? '';
+  const authorN = author ?? '';
+  const cacheKey = `languages:${fromN}:${toN}:${orgN}:${repoN}:${authorN}`;
 
   return withCache(cacheKey, 15 * 60 * 1000, async () => {
-    // If date range provided, use commitContributionsByRepository to filter repos in range
-    if (from || to) {
-      const reposInRange = await getCommitsByRepo(from, to);
-      if (reposInRange.length === 0) return [];
+    // Find repos in range using PR search (respects org/author filters)
+    if (from || to || org || repo || author) {
+      // Use getCommitsByRepo for unfiltered viewer data, PR-based search for filtered
+      let repoNames: string[] = [];
+      if (!org && !author && !repo) {
+        const reposInRange = await getCommitsByRepo(from, to);
+        repoNames = reposInRange.map(r => r.repo);
+      } else {
+        // Use PR search to find repos contributed to in range with filters
+        let dateRange = '';
+        if (from && to) dateRange = ` created:${from.slice(0, 10)}..${to.slice(0, 10)}`;
+        else if (from) dateRange = ` created:>=${from.slice(0, 10)}`;
+        else if (to) dateRange = ` created:<=${to.slice(0, 10)}`;
+
+        let q = '';
+        if (repo) q = `repo:${repo} is:pr${dateRange}`;
+        else if (org && author) q = `author:${author} org:${org} is:pr${dateRange}`;
+        else if (org) q = `org:${org} is:pr${dateRange}`;
+        else q = `author:${author} is:pr${dateRange}`;
+
+        const repoSet = new Set<string>();
+        let cursor: string | null = null;
+        let hasNextPage = true;
+        type RepoSearchResult = { search: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Array<{ repository?: { nameWithOwner: string } } | null> } };
+        while (hasNextPage && repoSet.size < 50) {
+          const page: RepoSearchResult | null = await graphql<RepoSearchResult>(
+            `query($q: String!, $after: String) { search(query: $q, type: ISSUE, first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { ... on PullRequest { repository { nameWithOwner } } } } }`,
+            { q, after: cursor ?? undefined },
+          ).catch(() => null);
+          if (!page) break;
+          for (const node of page.search.nodes) {
+            if (node?.repository?.nameWithOwner) repoSet.add(node.repository.nameWithOwner);
+          }
+          hasNextPage = page.search.pageInfo.hasNextPage;
+          cursor = page.search.pageInfo.endCursor;
+        }
+        repoNames = Array.from(repoSet);
+      }
+
+      if (repoNames.length === 0) return [];
 
       // Fetch language info for each repo in range using GraphQL
-      const repoNames = reposInRange.map(r => r.repo);
+      const repoNames50 = repoNames.slice(0, 50);
 
       // Batch query: fetch primaryLanguage for each repo
-      // GitHub GraphQL supports aliased repo lookups
-      const aliasedQueries = repoNames.slice(0, 50).map((fullName, i) => {
+      const aliasedQueries = repoNames50.map((fullName, i) => {
         const [owner, name] = fullName.split('/');
         return `repo${i}: repository(owner: "${owner}", name: "${name}") { primaryLanguage { name } }`;
       }).join('\n');

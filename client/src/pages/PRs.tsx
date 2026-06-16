@@ -11,10 +11,17 @@ export function PRsPage() {
   const [filter, setFilter] = useState<'all' | 'open' | 'closed' | 'merged'>('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.prs({ limit: 200 }).then(data => { setPrs(data); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+  function loadPRs() {
+    setLoading(true);
+    setError(null);
+    api.prs({ limit: 200 })
+      .then(data => { setPrs(data); setLoading(false); })
+      .catch(err => { setError(String(err)); setLoading(false); });
+  }
+
+  useEffect(() => { loadPRs(); }, []);
 
   const filtered = prs.filter(pr => {
     if (filter === 'merged' && !pr.merged) return false;
@@ -57,6 +64,13 @@ export function PRsPage() {
 
       {loading ? (
         <div className="loading">Loading pull requests…</div>
+      ) : error ? (
+        <div className="empty-state">
+          <div className="empty-icon">⚠️</div>
+          <p>Failed to load pull requests</p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text2)', marginBottom: '12px' }}>{error}</p>
+          <button className="btn btn-primary" onClick={loadPRs}>Retry</button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state"><div className="empty-icon">🔀</div><p>No PRs found</p></div>
       ) : (
